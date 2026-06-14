@@ -452,7 +452,7 @@ function setP(pct,lbl,st){
 
 // ── CALL PROXY ───────────────────────────────────────────────────────────────
 async function callClaude(system,user){
-  const res=await fetch('http://localhost:3131/v1/messages',{
+  const res=await fetch('claude-bpm.eng-fernandarodrigues.workers.dev',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,system,messages:[{role:'user',content:user}]})
