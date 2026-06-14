@@ -411,15 +411,42 @@ function setP(pct,lbl,st){
 }
 
 // ── CALL PROXY ───────────────────────────────────────────────────────────────
+// ── CALL PROXY ───────────────────────────────────────────────────────────────
 async function callClaude(system,user){
   const res=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,system,messages:[{role:'user',content:user}]})
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,stream:true,system,messages:[{role:'user',content:user}]})
   });
   if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${res.status}`);}
-  const d=await res.json();
-  return d.content.map(b=>b.text||'').join('');
+
+  // Resposta em streaming (SSE) — acumula apenas os deltas de texto, ignorando "thinking"
+  const reader=res.body.getReader();
+  const decoder=new TextDecoder();
+  let buffer='';
+  let text='';
+  while(true){
+    const {done,value}=await reader.read();
+    if(done)break;
+    buffer+=decoder.decode(value,{stream:true});
+    const lines=buffer.split('\n');
+    buffer=lines.pop();
+    for(const line of lines){
+      if(!line.startsWith('data: '))continue;
+      const data=line.slice(6).trim();
+      if(!data||data==='[DONE]')continue;
+      try{
+        const evt=JSON.parse(data);
+        if(evt.type==='content_block_delta'&&evt.delta&&evt.delta.type==='text_delta'){
+          text+=evt.delta.text;
+        }
+        if(evt.type==='error'){
+          throw new Error(evt.error?.message||'Erro no stream');
+        }
+      }catch(e){ if(e instanceof SyntaxError)continue; throw e; }
+    }
+  }
+  return text.replace(/```xml|```json|```/g,'').trim();
 }
 
 // ── GENERATE ─────────────────────────────────────────────────────────────────
