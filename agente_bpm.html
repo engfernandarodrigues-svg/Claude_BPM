@@ -424,6 +424,8 @@ async function callClaude(system,user){
   const decoder=new TextDecoder();
   let buffer='';
   let text='';
+  let thinkingLen=0;
+  let stopReason='';
   while(true){
     const {done,value}=await reader.read();
     if(done)break;
@@ -436,8 +438,12 @@ async function callClaude(system,user){
       if(!data||data==='[DONE]')continue;
       try{
         const evt=JSON.parse(data);
-        if(evt.type==='content_block_delta'&&evt.delta&&evt.delta.type==='text_delta'){
-          text+=evt.delta.text;
+        if(evt.type==='content_block_delta'&&evt.delta){
+          if(evt.delta.type==='text_delta')text+=evt.delta.text;
+          else if(evt.delta.type==='thinking_delta')thinkingLen+=(evt.delta.thinking||'').length;
+        }
+        if(evt.type==='message_delta'&&evt.delta&&evt.delta.stop_reason){
+          stopReason=evt.delta.stop_reason;
         }
         if(evt.type==='error'){
           throw new Error(evt.error?.message||'Erro no stream');
@@ -445,7 +451,11 @@ async function callClaude(system,user){
       }catch(e){ if(e instanceof SyntaxError)continue; throw e; }
     }
   }
-  return text.replace(/```xml|```json|```/g,'').trim();
+  const cleaned=text.replace(/```xml|```json|```/g,'').trim();
+  if(!cleaned){
+    throw new Error(`Resposta vazia (stop_reason=${stopReason||'?'}, thinking=${thinkingLen} chars). O modelo pode ter usado todo o limite de tokens pensando, sem gerar o conteúdo final.`);
+  }
+  return cleaned;
 }
 
 // ── GENERATE ─────────────────────────────────────────────────────────────────
