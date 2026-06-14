@@ -151,33 +151,8 @@ tbody tr:hover{background:var(--g50)}
     <div class="step" id="s5"><div class="sdot">5</div><span class="slbl">Saídas</span></div>
   </div>
 
-  <!-- PH1: SERVIDOR -->
-  <div id="ph-srv">
-    <div class="card">
-      <div class="ctitle">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        Iniciar servidor proxy local
-      </div>
-      <div class="infobox">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <div>
-          O arquivo HTML não pode chamar a API Anthropic diretamente por restrições de segurança do browser (CORS). 
-          Execute o servidor proxy incluso no .zip — ele roda localmente e nunca envia sua chave para lugar nenhum além da Anthropic.
-        </div>
-      </div>
-      <p style="font-size:13px;color:var(--g600);margin-bottom:1rem;font-weight:500">Passo 1 — abra um terminal e execute:</p>
-      <div class="code" style="max-height:80px;margin-bottom:1rem">node server.js sk-ant-api03-SUA_CHAVE_AQUI</div>
-      <p style="font-size:12px;color:var(--g400);margin-bottom:1.5rem">O terminal deve mostrar: <strong style="color:var(--green)">✅ Proxy rodando em http://localhost:3131</strong></p>
-      <p style="font-size:13px;color:var(--g600);margin-bottom:.75rem;font-weight:500">Passo 2 — confirme que o servidor está rodando:</p>
-      <div class="btn-row" style="margin-top:0">
-        <button class="btn btn-sky" id="btnPing">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-          Verificar conexão
-        </button>
-        <span id="pingResult" style="font-size:13px"></span>
-      </div>
-    </div>
-  </div>
+  <!-- PH1: SERVIDOR (não usado mais - proxy roda na nuvem) -->
+  <div id="ph-srv" class="hidden"></div>
 
   <!-- PH2: UPLOAD -->
   <div id="ph-upload" class="hidden">
@@ -334,6 +309,9 @@ const SAMPLE=[
   {id:"E03",nome:"Arquivado",raia:"—",tipo:"Evento Fim",metodo:"—",vis:"",obrig:"",upd:"",ls:"draft.status='arquivado';",le:"",tgw:"",conds:"",tev:"",cev:""},
 ];
 
+// ── PROXY ────────────────────────────────────────────────────────────────────
+const PROXY_URL='https://claude-bpm.eng-fernandarodrigues.workers.dev/v1/messages';
+
 // ── STATE ────────────────────────────────────────────────────────────────────
 let els=[], bpmnXml='', scripts={}, docs='', tests='';
 let viewer=null;
@@ -363,26 +341,8 @@ window.showTab=function(t){
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['bpmn','scripts','docs','tests'][i]===t));
 };
 
-// ── PING ─────────────────────────────────────────────────────────────────────
-$('btnPing').onclick=async()=>{
-  const r=$('pingResult');
-  r.textContent='Verificando...';r.style.color='var(--g400)';
-  try{
-    const res=await fetch('http://localhost:3131/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'ping'}]})
-    });
-    if(res.ok||res.status===400){
-      r.textContent='✅  Servidor OK!';r.style.color='var(--green)';
-      showPhase('upload');setStep(2);
-    }else{
-      r.textContent='⚠️  Servidor respondeu com status '+res.status;r.style.color='var(--red)';
-    }
-  }catch(e){
-    r.textContent='❌  Não encontrado — inicie o servidor primeiro';r.style.color='var(--red)';
-  }
-};
+// ── INICIALIZAÇÃO ────────────────────────────────────────────────────────────
+showPhase('upload');setStep(2);
 
 // ── UPLOAD ───────────────────────────────────────────────────────────────────
 const dz=$('dz');
@@ -452,7 +412,7 @@ function setP(pct,lbl,st){
 
 // ── CALL PROXY ───────────────────────────────────────────────────────────────
 async function callClaude(system,user){
-  const res=await fetch('http://localhost:3131/v1/messages',{
+  const res=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,system,messages:[{role:'user',content:user}]})
