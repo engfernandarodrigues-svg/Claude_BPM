@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente BPM — AgentLabs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --navy:#0F2340;--blue:#1A56A0;--sky:#3B82F6;--ice:#EEF4FF;
+  --white:#FFF;--g50:#F8F9FB;--g100:#F0F2F6;--g200:#E0E4EC;
+  --g400:#94A3B8;--g600:#475569;--g800:#1E293B;
+  --green:#16A34A;--red:#DC2626;--radius:10px;
+  --shadow:0 1px 3px rgba(15,35,64,.07),0 4px 16px rgba(15,35,64,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--g50);color:var(--g800);min-height:100vh;font-size:14px;line-height:1.6}
+.topbar{background:var(--navy);padding:0 2rem;height:56px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.tlogo{width:32px;height:32px;background:var(--sky);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tlogo svg{width:18px;height:18px;color:#fff}
+.ttitle{color:#fff;font-weight:500;font-size:15px}
+.tsub{color:rgba(255,255,255,.4);font-size:12px;margin-left:auto}
+.shell{max-width:980px;margin:0 auto;padding:2rem 1.5rem 4rem}
+/* pipeline */
+.pipeline{display:flex;align-items:center;background:var(--white);border:1px solid var(--g200);border-radius:var(--radius);padding:12px 20px;margin-bottom:2rem;box-shadow:var(--shadow)}
+.step{display:flex;align-items:center;gap:7px;flex:1}
+.sdot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;border:1.5px solid var(--g200);background:var(--white);color:var(--g400);flex-shrink:0;transition:all .2s}
+.slbl{font-size:12px;color:var(--g400)}
+.step.active .sdot{background:var(--sky);border-color:var(--sky);color:#fff}
+.step.active .slbl{color:var(--g800);font-weight:500}
+.step.done .sdot{background:var(--green);border-color:var(--green);color:#fff}
+.step.done .slbl{color:var(--green)}
+.sarr{color:var(--g200);font-size:18px;padding:0 2px;flex-shrink:0}
+/* cards */
+.card{background:var(--white);border:1px solid var(--g200);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.25rem;box-shadow:var(--shadow)}
+.ctitle{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g400);margin-bottom:1rem;display:flex;align-items:center;gap:6px}
+/* dropzone */
+.dz{border:2px dashed var(--g200);border-radius:var(--radius);padding:3rem 2rem;text-align:center;cursor:pointer;background:var(--g50);transition:all .2s}
+.dz:hover,.dz.drag{border-color:var(--sky);background:var(--ice)}
+.dz-icon{width:52px;height:52px;margin:0 auto 1rem;background:var(--ice);border-radius:14px;display:flex;align-items:center;justify-content:center}
+.dz-icon svg{width:26px;height:26px;color:var(--sky)}
+.dz h3{font-size:15px;font-weight:500;margin-bottom:4px}
+.dz p{font-size:13px;color:var(--g400)}
+.dz kbd{display:inline-block;margin-top:.75rem;background:var(--white);border:1px solid var(--g200);border-radius:6px;padding:3px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--g600)}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--g200);background:var(--white);color:var(--g800);transition:all .15s;font-family:inherit}
+.btn:hover{background:var(--g50);border-color:var(--g400)}
+.btn-p{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn-p:hover{background:var(--blue);border-color:var(--blue)}
+.btn-sky{background:var(--sky);border-color:var(--sky);color:#fff}
+.btn-sky:hover{background:var(--blue);border-color:var(--blue)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-row{display:flex;gap:8px;margin-top:1.25rem;flex-wrap:wrap;align-items:center}
+/* badges */
+.badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px}
+.b-ut{background:#DCFCE7;color:#15803D}.b-st{background:#FEF9C3;color:#A16207}
+.b-gw{background:#FFEDD5;color:#C2410C}.b-em{background:#F3E8FF;color:#7C3AED}
+.b-et{background:#CFFAFE;color:#0E7490}.b-ev{background:var(--g100);color:var(--g600)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem}
+.tag{font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px;border:1px solid transparent}
+.t-ut{background:#DCFCE7;color:#15803D;border-color:#BBF7D0}
+.t-st{background:#FEF9C3;color:#A16207;border-color:#FDE68A}
+.t-gw{background:#FFEDD5;color:#C2410C;border-color:#FED7AA}
+.t-em{background:#F3E8FF;color:#7C3AED;border-color:#E9D5FF}
+.t-et{background:#CFFAFE;color:#0E7490;border-color:#A5F3FC}
+/* table */
+.tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--g200)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;padding:9px 13px;background:var(--g50);color:var(--g600);font-weight:500;font-size:12px;border-bottom:1px solid var(--g200)}
+tbody td{padding:9px 13px;border-bottom:1px solid var(--g100);color:var(--g800);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--g50)}
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px}
+/* tabs */
+.tabs{display:flex;gap:2px;background:var(--g100);padding:3px;border-radius:10px;margin-bottom:1rem}
+.tab{flex:1;padding:7px 6px;font-size:13px;font-weight:500;border:none;cursor:pointer;border-radius:8px;background:transparent;color:var(--g400);font-family:inherit;transition:all .15s}
+.tab:hover{color:var(--g800)}
+.tab.active{background:var(--white);color:var(--navy);box-shadow:var(--shadow)}
+/* code */
+.code{background:#0F172A;color:#CBD5E1;border-radius:8px;padding:1.25rem;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto}
+.code-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+.code-fn{font-size:12px;font-weight:500;color:var(--g600);display:flex;align-items:center;gap:5px}
+/* progress */
+.prog-wrap{margin-bottom:1rem}
+.prog-lbl{font-size:12px;color:var(--g600);margin-bottom:5px;display:flex;justify-content:space-between}
+.prog-track{height:4px;background:var(--g200);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--sky),var(--blue));border-radius:2px;transition:width .5s ease}
+.status{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;font-size:13px}
+.s-info{background:var(--ice);color:var(--blue)}
+.s-ok{background:#F0FDF4;color:var(--green)}
+.s-err{background:#FEF2F2;color:var(--red)}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--g200);border-top-color:var(--sky);animation:rot .7s linear infinite;flex-shrink:0}
+@keyframes rot{to{transform:rotate(360deg)}}
+/* script cards */
+.el-card{border:1px solid var(--g200);border-radius:var(--radius);margin-bottom:.75rem;overflow:hidden}
+.el-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--g50);border-bottom:1px solid var(--g200)}
+.el-name{font-size:13px;font-weight:500;color:var(--g800)}
+.el-raia{font-size:12px;color:var(--g400);margin-left:auto}
+.el-body{padding:.75rem}
+.mtabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:.75rem}
+.mtab{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;cursor:pointer;border:1px solid var(--g200);background:var(--white);color:var(--g600);font-family:inherit;transition:all .12s}
+.mtab:hover{border-color:var(--sky);color:var(--sky)}
+.mtab.active{background:var(--navy);border-color:var(--navy);color:#fff}
+/* API config */
+.api-row{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
+.api-inp{flex:1;padding:8px 14px;border:1px solid var(--g200);border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--g800);background:var(--white);outline:none}
+.api-inp:focus{border-color:var(--sky);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+/* BPMN canvas */
+#bpmn-canvas{width:100%;height:520px;border:1px solid var(--g200);border-radius:8px;background:var(--white);overflow:hidden;position:relative}
+#bpmn-canvas svg{width:100%;height:100%}
+.bpmn-toolbar{display:flex;gap:6px;margin-bottom:.75rem;align-items:center}
+.bpmn-toolbar span{font-size:12px;color:var(--g400);margin-left:auto}
+/* OR divider */
+.or-div{display:flex;align-items:center;gap:12px;margin:1.25rem 0}
+.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--g200)}
+.or-div span{font-size:12px;color:var(--g400)}
+.divider{height:1px;background:var(--g200);margin:1.5rem 0}
+.hidden{display:none!important}
+/* info box */
+.infobox{background:var(--ice);border:1px solid #BFDBFE;border-radius:8px;padding:12px 14px;font-size:13px;color:var(--blue);margin-bottom:1rem;display:flex;align-items:flex-start;gap:8px}
+.infobox svg{flex-shrink:0;margin-top:1px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="tlogo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v6M14.5 17h6"/>
+    </svg>
+  </div>
+  <span class="ttitle">Agente BPM</span>
+  <span class="tsub">AgentLabs · SYDLE ONE</span>
+</div>
+
+<div class="shell">
+  <!-- PIPELINE -->
+  <div class="pipeline">
+    <div class="step active" id="s1"><div class="sdot">1</div><span class="slbl">Servidor</span></div>
+    <div class="sarr">›</div>
+    <div class="step" id="s2"><div class="sdot">2</div><span class="slbl">Upload</span></div>
+    <div class="sarr">›</div>
+    <div class="step" id="s3"><div class="sdot">3</div><span class="slbl">Prévia</span></div>
+    <div class="sarr">›</div>
+    <div class="step" id="s4"><div class="sdot">4</div><span class="slbl">Geração IA</span></div>
+    <div class="sarr">›</div>
+    <div class="step" id="s5"><div class="sdot">5</div><span class="slbl">Saídas</span></div>
+  </div>
+
+  <!-- PH1: SERVIDOR -->
+  <div id="ph-srv">
+    <div class="card">
+      <div class="ctitle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Iniciar servidor proxy local
+      </div>
+      <div class="infobox">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div>
+          O arquivo HTML não pode chamar a API Anthropic diretamente por restrições de segurança do browser (CORS). 
+          Execute o servidor proxy incluso no .zip — ele roda localmente e nunca envia sua chave para lugar nenhum além da Anthropic.
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--g600);margin-bottom:1rem;font-weight:500">Passo 1 — abra um terminal e execute:</p>
+      <div class="code" style="max-height:80px;margin-bottom:1rem">node server.js sk-ant-api03-SUA_CHAVE_AQUI</div>
+      <p style="font-size:12px;color:var(--g400);margin-bottom:1.5rem">O terminal deve mostrar: <strong style="color:var(--green)">✅ Proxy rodando em http://localhost:3131</strong></p>
+      <p style="font-size:13px;color:var(--g600);margin-bottom:.75rem;font-weight:500">Passo 2 — confirme que o servidor está rodando:</p>
+      <div class="btn-row" style="margin-top:0">
+        <button class="btn btn-sky" id="btnPing">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Verificar conexão
+        </button>
+        <span id="pingResult" style="font-size:13px"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PH2: UPLOAD -->
+  <div id="ph-upload" class="hidden">
+    <div class="card">
+      <div class="ctitle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Planilha de mapeamento
+      </div>
+      <div class="dz" id="dz">
+        <input type="file" id="fi" accept=".xlsx,.xls" style="display:none">
+        <div class="dz-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/>
+          </svg>
+        </div>
+        <h3>Arraste a planilha aqui</h3>
+        <p>ou clique para selecionar</p>
+        <kbd>BPM_Mapeamento_AgentLabs_v2.xlsx</kbd>
+      </div>
+      <div class="or-div"><span>ou</span></div>
+      <div style="text-align:center">
+        <button class="btn" id="btnSample">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+          Usar dados de exemplo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PH3: PREVIEW -->
+  <div id="ph-preview" class="hidden">
+    <div class="card">
+      <div class="ctitle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Elementos detectados
+      </div>
+      <div class="tags" id="tagRow"></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Nome</th><th>Raia</th><th>Tipo</th><th>Métodos</th></tr></thead>
+          <tbody id="ptbl-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btnBack2">← Voltar</button>
+      <button class="btn btn-p" id="btnGen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Gerar com IA
+      </button>
+    </div>
+  </div>
+
+  <!-- PH4: GENERATING -->
+  <div id="ph-gen" class="hidden">
+    <div class="card">
+      <div class="prog-wrap">
+        <div class="prog-lbl"><span id="gmtxt">Iniciando...</span><span id="gpct">0%</span></div>
+        <div class="prog-track"><div class="prog-fill" id="pf" style="width:0%"></div></div>
+      </div>
+      <div class="status s-info" id="genmsg">
+        <div class="spin"></div>
+        <span id="gmstatus">Preparando...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PH5: OUTPUT -->
+  <div id="ph-out" class="hidden">
+    <div class="status s-ok" style="margin-bottom:1.25rem">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      Geração concluída — Claude Sonnet 4
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('bpmn')">Diagrama BPMN</button>
+      <button class="tab" onclick="showTab('scripts')">Scripts JS</button>
+      <button class="tab" onclick="showTab('docs')">Documentação</button>
+      <button class="tab" onclick="showTab('tests')">Casos de Teste</button>
+    </div>
+
+    <!-- BPMN DIAGRAM -->
+    <div id="t-bpmn">
+      <div class="bpmn-toolbar">
+        <button class="btn btn-sm" id="btnZoomIn">＋ Zoom</button>
+        <button class="btn btn-sm" id="btnZoomOut">－ Zoom</button>
+        <button class="btn btn-sm" id="btnFit">Ajustar</button>
+        <button class="btn btn-sm" id="btnExportSvg">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar SVG
+        </button>
+        <button class="btn btn-sm" id="btnExportPng">Baixar PNG</button>
+        <span id="bpmnStatus"></span>
+      </div>
+      <div id="bpmn-canvas"></div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <div id="t-scripts" class="hidden"><div id="scriptsCont"></div></div>
+
+    <!-- DOCS -->
+    <div id="t-docs" class="hidden">
+      <div class="code-hdr">
+        <div class="code-fn">documentacao.md</div>
+        <button class="btn btn-sm" id="btnCopyDocs">Copiar</button>
+      </div>
+      <div class="code" id="outDocs"></div>
+    </div>
+
+    <!-- TESTS -->
+    <div id="t-tests" class="hidden">
+      <div class="code-hdr">
+        <div class="code-fn">casos_de_teste.md</div>
+        <button class="btn btn-sm" id="btnCopyTests">Copiar</button>
+      </div>
+      <div class="code" id="outTests"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="btn-row">
+      <button class="btn" id="btnReset">↺ Novo processo</button>
+      <button class="btn btn-p" id="btnZip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Baixar tudo (.zip)
+      </button>
+    </div>
+  </div>
+</div><!-- /shell -->
+
+<!-- bpmn-js via CDN -->
+<script src="https://unpkg.com/bpmn-js@17.11.1/dist/bpmn-navigated-viewer.development.js"></script>
+<script>
+// ── SAMPLE DATA ─────────────────────────────────────────────────────────────
+const SAMPLE=[
+  {id:"E01",nome:"Início",raia:"—",tipo:"Evento Início",metodo:"—",vis:"",obrig:"",upd:"",ls:"",le:"",tgw:"",conds:"",tev:"Início",cev:""},
+  {id:"UT01",nome:"Solicitar Aprovação",raia:"Solicitante",tipo:"UserTask",metodo:"_start",vis:"",obrig:"",upd:"",ls:"draft.status='em_preenchimento';\ndraft.dataAbertura=new Date().toISOString();",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT01",nome:"Solicitar Aprovação",raia:"Solicitante",tipo:"UserTask",metodo:"_getMetadata",vis:"nome,cpf,cargo,seção",obrig:"nome,cargo,seção",upd:"",ls:"metadata.fields.cargo.options=await getCargos();",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT01",nome:"Solicitar Aprovação",raia:"Solicitante",tipo:"UserTask",metodo:"_updateDraft",vis:"",obrig:"",upd:"nome,cpf,cargo,secao",ls:"draft.nome=params.nome;\ndraft.cargo=params.cargo;",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT01",nome:"Solicitar Aprovação",raia:"Solicitante",tipo:"UserTask",metodo:"_end",vis:"",obrig:"",upd:"",ls:"",le:"draft.status='aguardando_validacao';",tgw:"",conds:"",tev:"",cev:""},
+  {id:"ST01",nome:"Validar Formulário",raia:"Sistema",tipo:"ScriptTask",metodo:"execute()",vis:"",obrig:"",upd:"",ls:"if(!draft.nome||!draft.cargo){\n  draft.status='invalido';\n}else{\n  draft.status='validado';\n}",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"GW01",nome:"Formulário OK?",raia:"Sistema",tipo:"Gateway Exclus.",metodo:"—",vis:"",obrig:"",upd:"",ls:"",le:"",tgw:"Exclusivo",conds:"[Sim]→UT03\n[Não]→UT02",tev:"",cev:""},
+  {id:"UT02",nome:"Corrigir Dados",raia:"Solicitante",tipo:"UserTask",metodo:"_start",vis:"",obrig:"",upd:"",ls:"draft.status='em_correcao';",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT02",nome:"Corrigir Dados",raia:"Solicitante",tipo:"UserTask",metodo:"_getMetadata",vis:"nome,cargo,obs",obrig:"nome,cargo",upd:"",ls:"",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT02",nome:"Corrigir Dados",raia:"Solicitante",tipo:"UserTask",metodo:"_updateDraft",vis:"",obrig:"",upd:"nome,cargo,obs",ls:"draft.nome=params.nome;",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT02",nome:"Corrigir Dados",raia:"Solicitante",tipo:"UserTask",metodo:"_end",vis:"",obrig:"",upd:"",ls:"",le:"draft.status='aguardando_validacao';",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT03",nome:"Aprovar / Reprovar",raia:"Gestor",tipo:"UserTask",metodo:"_start",vis:"",obrig:"",upd:"",ls:"draft.status='em_analise';",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT03",nome:"Aprovar / Reprovar",raia:"Gestor",tipo:"UserTask",metodo:"_getMetadata",vis:"decisao,justificativa",obrig:"decisao",upd:"",ls:"metadata.fields.decisao.options=['Aprovado','Reprovado'];",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT03",nome:"Aprovar / Reprovar",raia:"Gestor",tipo:"UserTask",metodo:"_updateDraft",vis:"",obrig:"",upd:"decisao,justificativa",ls:"draft.decisao=params.decisao;",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"UT03",nome:"Aprovar / Reprovar",raia:"Gestor",tipo:"UserTask",metodo:"_end",vis:"",obrig:"",upd:"",ls:"",le:"draft.status=draft.decisao==='Aprovado'?'aprovado':'reprovado';",tgw:"",conds:"",tev:"",cev:""},
+  {id:"EM01",nome:"Notificar Gestor",raia:"Sistema",tipo:"Evento Mensagem",metodo:"onMessage()",vis:"",obrig:"",upd:"",ls:"draft.notificado=true;",le:"",tgw:"",conds:"",tev:"E-mail",cev:"aprovacao.pendente"},
+  {id:"ET01",nome:"Aguardar Prazo",raia:"Sistema",tipo:"Evento Timer",metodo:"onTimer()",vis:"",obrig:"",upd:"",ls:"draft.timerExpirado=true;",le:"",tgw:"",conds:"",tev:"Duração",cev:"PT48H"},
+  {id:"GW02",nome:"Aprovado?",raia:"Sistema",tipo:"Gateway Exclus.",metodo:"—",vis:"",obrig:"",upd:"",ls:"",le:"",tgw:"Exclusivo",conds:"[Aprovado]→E02\n[Reprovado]→E03",tev:"",cev:""},
+  {id:"E02",nome:"Concluído",raia:"—",tipo:"Evento Fim",metodo:"—",vis:"",obrig:"",upd:"",ls:"draft.status='concluido';",le:"",tgw:"",conds:"",tev:"",cev:""},
+  {id:"E03",nome:"Arquivado",raia:"—",tipo:"Evento Fim",metodo:"—",vis:"",obrig:"",upd:"",ls:"draft.status='arquivado';",le:"",tgw:"",conds:"",tev:"",cev:""},
+];
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let els=[], bpmnXml='', scripts={}, docs='', tests='';
+let viewer=null;
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const BC={UserTask:'b-ut',ScriptTask:'b-st','Gateway Exclus.':'b-gw','Evento Mensagem':'b-em','Evento Timer':'b-et'};
+const TC={UserTask:'t-ut',ScriptTask:'t-st','Gateway Exclus.':'t-gw','Evento Mensagem':'t-em','Evento Timer':'t-et'};
+const bc=t=>BC[t]||'b-ev';
+const tc=t=>TC[t]||'';
+
+function setStep(n){
+  for(let i=1;i<=5;i++){
+    const el=$('s'+i);
+    el.className='step'+(i===n?' active':i<n?' done':'');
+    const dot=el.querySelector('.sdot');
+    dot.innerHTML=i<n?'✓':String(i);
+  }
+}
+function showPhase(p){
+  ['srv','upload','preview','gen','out'].forEach(x=>$('ph-'+x).classList.add('hidden'));
+  $('ph-'+p).classList.remove('hidden');
+}
+window.showTab=function(t){
+  ['bpmn','scripts','docs','tests'].forEach(x=>$('t-'+x).classList.toggle('hidden',x!==t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['bpmn','scripts','docs','tests'][i]===t));
+};
+
+// ── PING ─────────────────────────────────────────────────────────────────────
+$('btnPing').onclick=async()=>{
+  const r=$('pingResult');
+  r.textContent='Verificando...';r.style.color='var(--g400)';
+  try{
+    const res=await fetch('http://localhost:3131/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'ping'}]})
+    });
+    if(res.ok||res.status===400){
+      r.textContent='✅  Servidor OK!';r.style.color='var(--green)';
+      showPhase('upload');setStep(2);
+    }else{
+      r.textContent='⚠️  Servidor respondeu com status '+res.status;r.style.color='var(--red)';
+    }
+  }catch(e){
+    r.textContent='❌  Não encontrado — inicie o servidor primeiro';r.style.color='var(--red)';
+  }
+};
+
+// ── UPLOAD ───────────────────────────────────────────────────────────────────
+const dz=$('dz');
+dz.onclick=()=>$('fi').click();
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag');};
+dz.ondragleave=()=>dz.classList.remove('drag');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);};
+$('fi').onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);};
+$('btnSample').onclick=()=>{els=SAMPLE;renderPreview();showPhase('preview');setStep(3);};
+$('btnBack2').onclick=()=>{showPhase('upload');setStep(2);};
+
+function loadFile(file){
+  const r=new FileReader();
+  r.onload=ev=>{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+    const sn=wb.SheetNames.find(n=>n.includes('Mapeamento'))||wb.SheetNames[0];
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+    const hi=rows.findIndex(row=>row.some(c=>String(c).includes('ID Elem')));
+    if(hi<0){alert('Aba "Mapeamento BPM" não encontrada.');return;}
+    els=[];
+    for(let i=hi+1;i<rows.length;i++){
+      const row=rows[i];if(!row[0]&&!row[1])continue;
+      const g=idx=>String(row[idx]||'').trim();
+      els.push({id:g(0),nome:g(2),raia:g(3),tipo:g(4),metodo:g(5),
+        vis:g(6),obrig:g(7),upd:g(8),ls:g(9),le:g(10),
+        tgw:g(11),conds:g(12),tev:g(13),cev:g(14)});
+    }
+    els=els.filter(r=>r.id);
+    renderPreview();showPhase('preview');setStep(3);
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function renderPreview(){
+  const cnt={};
+  els.forEach(e=>{cnt[e.tipo]=(cnt[e.tipo]||0)+1;});
+  $('tagRow').innerHTML=Object.entries(cnt).map(([t,c])=>`<span class="tag ${tc(t)}">${t}: ${c}</span>`).join('');
+  const ids=[...new Set(els.map(e=>e.id))];
+  $('ptbl-body').innerHTML=ids.slice(0,16).map(id=>{
+    const f=els.find(e=>e.id===id);
+    const ms=els.filter(e=>e.id===id&&e.metodo!=='—').map(e=>e.metodo);
+    return `<tr><td class="mono">${esc(f.id)}</td><td style="font-weight:500">${esc(f.nome)}</td>
+      <td style="color:var(--g400)">${esc(f.raia)}</td>
+      <td><span class="badge ${bc(f.tipo)}">${esc(f.tipo)}</span></td>
+      <td class="mono" style="color:var(--g400)">${ms.join(' · ')||esc(f.metodo)}</td></tr>`;
+  }).join('');
+}
+
+// ── BUILD JSON for prompt ────────────────────────────────────────────────────
+function buildJSON(){
+  const m={};
+  els.forEach(e=>{
+    if(!m[e.id])m[e.id]={id:e.id,nome:e.nome,raia:e.raia,tipo:e.tipo,methods:{}};
+    if(e.metodo&&e.metodo!=='—')
+      m[e.id].methods[e.metodo]={vis:e.vis,obrig:e.obrig,upd:e.upd,ls:e.ls,le:e.le};
+    if(e.tgw)m[e.id].gateway={tipo:e.tgw,conds:e.conds};
+    if(e.tev)m[e.id].evento={tipo:e.tev,cfg:e.cev};
+    if(e.ls&&e.metodo==='—')m[e.id].logica=e.ls;
+  });
+  return JSON.stringify(Object.values(m),null,2);
+}
+
+function setP(pct,lbl,st){
+  $('pf').style.width=pct+'%';$('gpct').textContent=pct+'%';$('gmtxt').textContent=lbl;
+  if(st)$('gmstatus').textContent=st;
+}
+
+// ── CALL PROXY ───────────────────────────────────────────────────────────────
+async function callClaude(system,user){
+  const res=await fetch('http://localhost:3131/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4096,system,messages:[{role:'user',content:user}]})
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${res.status}`);}
+  const d=await res.json();
+  return d.content.map(b=>b.text||'').join('');
+}
+
+// ── GENERATE ─────────────────────────────────────────────────────────────────
+$('btnGen').onclick=async()=>{
+  showPhase('gen');setStep(4);
+  const j=buildJSON();
+  try{
+    // 1. BPMN XML
+    setP(8,'Gerando diagrama BPMN...','Modelando fluxo com raias e elementos...');
+    bpmnXml=await callClaude(
+      `Você é especialista em BPMN 2.0. Gere APENAS XML BPMN 2.0 válido e completo, sem texto antes/depois, sem markdown.
+Regras obrigatórias:
+- Use namespace xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+- Crie um <collaboration> com pools/lanes por raia
+- UserTask: use <userTask> com name
+- ScriptTask: use <scriptTask> com name
+- Gateway exclusivo: use <exclusiveGateway> com name
+- Evento de mensagem: use <intermediateCatchEvent> com <messageEventDefinition>
+- Evento timer: use <intermediateCatchEvent> com <timerEventDefinition>
+- Evento início: <startEvent>, Evento fim: <endEvent>
+- Conecte todos os elementos com <sequenceFlow>
+- Inclua <bpmndi:BPMNDiagram> com shapes e edges com coordenadas x,y reais (layout horizontal, 160px entre elementos, 100px de altura de lane)
+- Todo elemento deve ter um shape no BPMNDiagram`,
+      'Gere o BPMN para este processo:\n'+j
+    );
+
+    // 2. Scripts
+    setP(38,'Gerando scripts JavaScript...','_start, _getMetadata, _updateDraft, _end por UserTask...');
+    const raw=await callClaude(
+      'Você é desenvolvedor SYDLE ONE. Retorne APENAS JSON puro sem markdown. Estrutura: {"NomeElemento":{"_start":"código","_getMetadata":"código","_updateDraft":"código","_end":"código"}}. ScriptTask→"execute". Evento Mensagem→"onMessage". Timer→"onTimer". async/await. Assinatura: async function _start(task,draft,metadata,params). Código JS real baseado na lógica fornecida.',
+      'Scripts JS para:\n'+j
+    );
+    try{scripts=JSON.parse(raw.replace(/```json|```/g,'').trim());}
+    catch{scripts={_raw:raw};}
+
+    // 3. Docs
+    setP(68,'Gerando documentação...','Fluxo, regras de negócio, integrações...');
+    docs=await callClaude(
+      'Analista BPM. Documentação funcional em markdown. Seções: ## Visão Geral, ## Atores e Raias, ## Fluxo Principal (numerado), ## Regras de Negócio, ## Integrações, ## Glossário.',
+      'Documente:\n'+j
+    );
+
+    // 4. Tests
+    setP(87,'Gerando casos de teste...','Cobertura por método e por condição...');
+    tests=await callClaude(
+      'QA BPM SYDLE ONE. Casos de teste em markdown. UserTask: testes para _start, _getMetadata, _updateDraft, _end. ScriptTask: positivo e negativo. Gateway: teste por condição. Tabela: | ID | Elemento/Método | Tipo | Pré-condição | Entrada | Resultado Esperado | Status |. Status = "🔲 Pendente".',
+      'Testes para:\n'+j
+    );
+
+    setP(100,'Concluído!','Todos os artefatos gerados.');
+    setTimeout(renderOutput,400);
+  }catch(err){
+    $('genmsg').className='status s-err';
+    $('genmsg').innerHTML=`✕ Erro: ${esc(err.message)}`;
+  }
+};
+
+// ── RENDER OUTPUT ─────────────────────────────────────────────────────────────
+async function renderOutput(){
+  // Scripts tab
+  $('outDocs').textContent=docs;
+  $('outTests').textContent=tests;
+  const cont=$('scriptsCont');
+  cont.innerHTML='';
+  Object.entries(scripts).forEach(([name,methods])=>{
+    const card=document.createElement('div');
+    card.className='el-card';
+    if(name==='_raw'){
+      card.innerHTML=`<div class="el-hdr"><span class="el-name">Scripts</span></div><div class="el-body"><div class="code">${esc(String(methods))}</div></div>`;
+    }else{
+      const mkeys=Object.keys(methods);
+      const tipo=els.find(e=>e.nome===name||e.id===name)?.tipo||'';
+      const raia=els.find(e=>e.nome===name)?.raia||'';
+      card.innerHTML=`<div class="el-hdr">
+          <span class="badge ${bc(tipo)}">${esc(tipo)||'Elemento'}</span>
+          <span class="el-name">${esc(name)}</span>
+          <span class="el-raia">${esc(raia)}</span>
+        </div>
+        <div class="el-body">
+          <div class="mtabs">${mkeys.map((m,i)=>`<button class="mtab${i===0?' active':''}" data-el="${esc(name)}" data-m="${esc(m)}">${esc(m)}</button>`).join('')}</div>
+          <div class="code" id="cd-${esc(name).replace(/\s/g,'_').replace(/\//g,'_')}">${esc(String(Object.values(methods)[0]||''))}</div>
+        </div>`;
+    }
+    cont.appendChild(card);
+  });
+  cont.addEventListener('click',e=>{
+    const mt=e.target.closest('.mtab');
+    if(!mt)return;
+    const elName=mt.dataset.el,m=mt.dataset.m;
+    mt.closest('.el-card').querySelectorAll('.mtab').forEach(b=>b.classList.remove('active'));
+    mt.classList.add('active');
+    const safe=elName.replace(/\s/g,'_').replace(/\//g,'_');
+    document.getElementById('cd-'+safe).textContent=String(scripts[elName]?.[m]||'');
+  });
+
+  // BPMN diagram
+  showPhase('out');setStep(5);
+  await renderBpmn(bpmnXml);
+}
+
+// ── BPMN RENDERING via bpmn-js ───────────────────────────────────────────────
+async function renderBpmn(xml){
+  const status=$('bpmnStatus');
+  status.textContent='Renderizando diagrama...';status.style.color='var(--g400)';
+  try{
+    if(viewer)viewer.destroy();
+    viewer=new BpmnJS({container:'#bpmn-canvas'});
+    await viewer.importXML(xml);
+    const canvas=viewer.get('canvas');
+    canvas.zoom('fit-viewport');
+    status.textContent='✓ Diagrama carregado';status.style.color='var(--green)';
+  }catch(err){
+    // If bpmn-js fails, show raw XML fallback
+    status.textContent='⚠ Erro no diagrama — exibindo XML';status.style.color='var(--red)';
+    $('bpmn-canvas').innerHTML=`<div style="padding:1rem"><div class="code" style="max-height:480px">${esc(xml)}</div></div>`;
+  }
+}
+
+// ── BPMN controls ────────────────────────────────────────────────────────────
+$('btnZoomIn').onclick=()=>{ try{viewer.get('canvas').zoom(viewer.get('canvas').zoom()*1.2);}catch(e){} };
+$('btnZoomOut').onclick=()=>{ try{viewer.get('canvas').zoom(viewer.get('canvas').zoom()*0.8);}catch(e){} };
+$('btnFit').onclick=()=>{ try{viewer.get('canvas').zoom('fit-viewport');}catch(e){} };
+
+$('btnExportSvg').onclick=async()=>{
+  try{
+    const {svg}=await viewer.saveSVG();
+    const a=document.createElement('a');
+    a.href='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    a.download='processo_bpm.svg';a.click();
+  }catch(e){alert('Erro ao exportar SVG: '+e.message);}
+};
+
+$('btnExportPng').onclick=async()=>{
+  try{
+    const {svg}=await viewer.saveSVG();
+    const img=new Image();
+    const svgBlob=new Blob([svg],{type:'image/svg+xml'});
+    const url=URL.createObjectURL(svgBlob);
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      canvas.width=img.width*2;canvas.height=img.height*2;
+      const ctx=canvas.getContext('2d');
+      ctx.scale(2,2);ctx.fillStyle='#fff';ctx.fillRect(0,0,img.width,img.height);
+      ctx.drawImage(img,0,0);
+      URL.revokeObjectURL(url);
+      const a=document.createElement('a');
+      a.href=canvas.toDataURL('image/png');a.download='processo_bpm.png';a.click();
+    };
+    img.src=url;
+  }catch(e){alert('Erro ao exportar PNG: '+e.message);}
+};
+
+// ── COPY ─────────────────────────────────────────────────────────────────────
+function copyBtn(btn,text){
+  navigator.clipboard.writeText(text).then(()=>{
+    const o=btn.textContent;btn.textContent='✓ Copiado';
+    setTimeout(()=>btn.textContent=o,2000);
+  });
+}
+$('btnCopyDocs').onclick=()=>copyBtn($('btnCopyDocs'),docs);
+$('btnCopyTests').onclick=()=>copyBtn($('btnCopyTests'),tests);
+
+// ── RESET ────────────────────────────────────────────────────────────────────
+$('btnReset').onclick=()=>{
+  els=[];bpmnXml='';scripts={};docs='';tests='';
+  $('fi').value='';if(viewer){viewer.destroy();viewer=null;}
+  showPhase('srv');setStep(1);
+};
+
+// ── ZIP DOWNLOAD ─────────────────────────────────────────────────────────────
+$('btnZip').onclick=async()=>{
+  const zip=new JSZip();
+  zip.file('processo.bpmn',bpmnXml);
+  zip.file('documentacao.md',docs);
+  zip.file('casos_de_teste.md',tests);
+  // SVG export
+  try{const{svg}=await viewer.saveSVG();zip.file('processo.svg',svg);}catch(e){}
+  Object.entries(scripts).forEach(([name,methods])=>{
+    if(name==='_raw'){zip.file('scripts/_raw.js',String(methods));return;}
+    const safe=name.replace(/[^a-zA-Z0-9_]/g,'_');
+    Object.entries(methods).forEach(([m,code])=>{
+      zip.file(`scripts/${safe}/${m.replace(/[()]/g,'')}.js`,String(code));
+    });
+  });
+  const blob=await zip.generateAsync({type:'blob'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download='processo_bpm.zip';a.click();
+};
+</script>
+</body>
+</html>
