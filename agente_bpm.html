@@ -454,12 +454,25 @@ async function callClaude(system,user){
       }catch(e){ if(e instanceof SyntaxError)continue; throw e; }
     }
   }
-  const cleaned=text.replace(/```xml|```json|```/g,'').trim();
-  if(!cleaned){
-    console.log('[Agente BPM] Resposta bruta do stream (primeiros 3000 chars):',rawAll.slice(0,3000));
-    throw new Error(`Resposta vazia (stop_reason=${stopReason||'?'}, thinking=${thinkingLen} chars). Veja o console (F12) para a resposta bruta.`);
-  }
-  return cleaned;
+const cleaned=text.replace(/```xml|```json|```/g,'').trim();
+  if(cleaned)return cleaned;
+
+  // Fallback: a resposta nao veio em formato SSE (data: ...) — tenta interpretar
+  // como objeto de mensagem completo (nao-streamado): {"type":"message","content":[{"type":"text","text":"..."}]}
+  try{
+    const msg=JSON.parse(rawAll);
+    if(msg && Array.isArray(msg.content)){
+      const t=msg.content.filter(b=>b.type==='text').map(b=>b.text||'').join('');
+      const c=t.replace(/```xml|```json|```/g,'').trim();
+      if(c)return c;
+    }
+    if(msg && msg.error){
+      throw new Error(msg.error.message||'Erro da API');
+    }
+  }catch(e){ if(!(e instanceof SyntaxError))throw e; }
+
+  console.log('[Agente BPM] Resposta bruta (primeiros 3000 chars):',rawAll.slice(0,3000));
+  throw new Error(`Resposta vazia (stop_reason=${stopReason||'?'}, thinking=${thinkingLen} chars). Veja o console (F12) para a resposta bruta.`);
 }
 
 // ── GENERATE ─────────────────────────────────────────────────────────────────
