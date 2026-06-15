@@ -423,13 +423,16 @@ async function callClaude(system,user){
   const reader=res.body.getReader();
   const decoder=new TextDecoder();
   let buffer='';
+  let rawAll='';
   let text='';
   let thinkingLen=0;
   let stopReason='';
   while(true){
     const {done,value}=await reader.read();
     if(done)break;
-    buffer+=decoder.decode(value,{stream:true});
+    const chunk=decoder.decode(value,{stream:true});
+    rawAll+=chunk;
+    buffer+=chunk;
     const lines=buffer.split('\n');
     buffer=lines.pop();
     for(const line of lines){
@@ -453,7 +456,8 @@ async function callClaude(system,user){
   }
   const cleaned=text.replace(/```xml|```json|```/g,'').trim();
   if(!cleaned){
-    throw new Error(`Resposta vazia (stop_reason=${stopReason||'?'}, thinking=${thinkingLen} chars). O modelo pode ter usado todo o limite de tokens pensando, sem gerar o conteúdo final.`);
+    console.log('[Agente BPM] Resposta bruta do stream (primeiros 3000 chars):',rawAll.slice(0,3000));
+    throw new Error(`Resposta vazia (stop_reason=${stopReason||'?'}, thinking=${thinkingLen} chars). Veja o console (F12) para a resposta bruta.`);
   }
   return cleaned;
 }
